@@ -1,0 +1,96 @@
+Configuration:
+  status: warn
+  name: KafkaProductionConfig
+  
+  Properties:
+    Property:
+      - name: "kafka.logs.dir"
+        value: "/var/log/kafka/"
+      - name: "audit.logs.dir"
+        value: "/var/log/kafka/audit"
+  
+  Appenders:
+    Console:
+      name: STDOUT
+      PatternLayout:
+        pattern: "[%d{ISO8601}] %p %m (%c)%n"
+    
+    RollingFile:
+      # Основные логи сервера
+      - name: serverLog
+        fileName: "${kafka.logs.dir}/server.log"
+        filePattern: "${kafka.logs.dir}/archive/server-%d{yyyy-MM-dd}-%i.log.gz"
+        PatternLayout:
+          pattern: "[%d{ISO8601}] %p %m (%c)%n"
+        Policies:
+          TimeBasedTriggeringPolicy:
+            interval: 1
+          SizeBasedTriggeringPolicy:
+            size: "100MB"
+        DefaultRolloverStrategy:
+          max: 30
+      
+      # Аудит авторизации
+      - name: authorizerAudit
+        fileName: "${audit.logs.dir}/kafka-authorizer.log"
+        filePattern: "${audit.logs.dir}/archive/authorizer-%d{yyyy-MM-dd}-%i.log.gz"
+        PatternLayout:
+          pattern: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %m%n"
+        Policies:
+          TimeBasedTriggeringPolicy:
+            interval: 1
+          SizeBasedTriggeringPolicy:
+            size: "50MB"
+        DefaultRolloverStrategy:
+          max: 365
+      
+      # Аудит запросов
+      - name: requestAudit
+        fileName: "${audit.logs.dir}/kafka-request.log"
+        filePattern: "${audit.logs.dir}/archive/request-%d{yyyy-MM-dd}-%i.log.gz"
+        PatternLayout:
+          pattern: "%d{yyyy-MM-dd HH:mm:ss.SSS} %m%n"
+        Policies:
+          TimeBasedTriggeringPolicy:
+            interval: 1
+          SizeBasedTriggeringPolicy:
+            size: "50MB"
+        DefaultRolloverStrategy:
+          max: 90
+        Filters:
+          RegexFilter:
+            regex: ".*(CREATE_TOPICS|DELETE_TOPICS|PRODUCE|FETCH).*"
+            onMatch: ACCEPT
+            onMismatch: DENY
+  
+  Loggers:
+    Root:
+      level: INFO
+      AppenderRef:
+        - ref: STDOUT
+        - ref: serverLog
+    
+    Logger:
+      - name: kafka
+        level: INFO
+        additivity: false
+        AppenderRef:
+          ref: serverLog
+      
+      - name: kafka.controller
+        level: INFO
+        additivity: false
+        AppenderRef:
+          ref: serverLog
+      
+      - name: aiven.auditor.logger
+        level: INFO
+        additivity: false
+        AppenderRef:
+          ref: authorizerAudit
+      
+      - name: state.change.logger
+        level: INFO
+        additivity: false
+        AppenderRef:
+          ref: serverLog
